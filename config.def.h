@@ -6,7 +6,7 @@
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
 static char *font = "DejaVuSansMono Nerd Font Mono:style=Book:size=13:antialias=true:autohint=true";
-static int borderpx = 2;
+static int borderpx = 0;
 
 /* disable bold, italic and roman fonts globally */
 int disablebold = 1;
@@ -208,6 +208,9 @@ ResourcePref resources[] = {
   { "tabspaces",    INTEGER, &tabspaces },
   { "cwscale",      FLOAT,   &cwscale },
   { "chscale",      FLOAT,   &chscale },
+  { "disablebold",  INTEGER, &disablebold },
+  { "disableitalic", INTEGER, &disableitalic },
+  { "disableroman", INTEGER, &disableroman },
 };
 
 /*
