@@ -2031,57 +2031,81 @@ run(void)
 	}
 }
 
-int
-resource_load(XrmDatabase db, char *name, enum resource_type rtype, void *dst)
+void
+xrdb_load(void)
 {
-	char **sdst = dst;
-	int *idst = dst;
-	float *fdst = dst;
-
-	char fullname[256];
-	char fullclass[256];
+	char *resm;
 	char *type;
+	XrmDatabase db;
 	XrmValue ret;
+	Display *dpy;
+  ResourcePref *p;
 
-	snprintf(fullname, sizeof(fullname), "%s.%s",
-			opt_name ? opt_name : "st", name);
-	snprintf(fullclass, sizeof(fullclass), "%s.%s",
-			opt_class ? opt_class : "St", name);
-	fullname[sizeof(fullname) - 1] = fullclass[sizeof(fullclass) - 1] = '\0';
+	if(!(dpy = XOpenDisplay(NULL)))
+		die("Can't open display\n");
 
-	XrmGetResource(db, fullname, fullclass, &type, &ret);
-	if (ret.addr == NULL || strncmp("String", type, 64))
-		return 1;
+	XrmInitialize();
+	resm = XResourceManagerString(dpy);
 
-	switch (rtype) {
-	case STRING:
-		*sdst = ret.addr;
-		break;
-	case INTEGER:
-		*idst = strtoul(ret.addr, NULL, 10);
-		break;
-	case FLOAT:
-		*fdst = strtof(ret.addr, NULL);
-		break;
-	}
-	return 0;
+  if (!resm)
+    return;
+
+  db = XrmGetStringDatabase(resm);
+
+	for (p = resources; p < resources + LEN(resources); p++) {
+    char fullname[256] = "";
+    char fullclass[256] = "";
+
+    snprintf(fullname, sizeof(fullname), "%s.%s",
+        opt_name ? opt_name : "st", p->name);
+    snprintf(fullclass, sizeof(fullclass), "%s.%s",
+        opt_class ? opt_class : "St", p->name);
+    fullname[sizeof(fullname) - 1] = fullclass[sizeof(fullclass) - 1] = '\0';
+
+    XrmGetResource(db, fullname, fullclass, &type, &ret);
+
+    if (ret.addr == NULL || strncmp("String", type, 64))
+      return;
+
+    switch (p->type) {
+    case STRING:
+      *(char **)p->dst = (char *)ret.addr;
+      break;
+    case INTEGER:
+      *(int *)p->dst = strtoul(ret.addr, NULL, 10);
+      break;
+    case FLOAT:
+      *(float *)p->dst = strtof(ret.addr, NULL);
+      break;
+    // case CHAR:
+    //   *(char **)p->dst = (char *)ret.addr[0];
+    //   break;
+    }
+  }
+
+	XFlush(dpy);
 }
 
 void
-config_init(void)
+reload(int sig)
 {
-	char *resm;
-	XrmDatabase db;
-	ResourcePref *p;
+	xrdb_load();
 
-	XrmInitialize();
-	resm = XResourceManagerString(xw.dpy);
-	if (!resm)
-		return;
+	/* colors, fonts */
+	xloadcols();
+	xunloadfonts();
+	xloadfonts(font, 0);
 
-	db = XrmGetStringDatabase(resm);
-	for (p = resources; p < resources + LEN(resources); p++)
-		resource_load(db, p->name, p->type, p->dst);
+	/* pretend the window just got resized */
+	cresize(win.w, win.h);
+	ttyresize(win.tw, win.th);
+
+	redraw();
+
+	/* triggers re-render if we're visible. */
+	// ttywrite("\033[O", 3, 0);
+
+	signal(SIGUSR1, reload);
 }
 
 void
@@ -2159,10 +2183,12 @@ run:
 	XSetLocaleModifiers("");
 	if(!(xw.dpy = XOpenDisplay(NULL)))
 		die("Can't open display\n");
-	config_init();
+
+  xrdb_load();
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
 	tnew(cols, rows);
+  signal(SIGUSR1, reload);
 	xinit(cols, rows);
 	xsetenv();
 	selinit();
