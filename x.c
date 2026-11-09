@@ -2119,6 +2119,8 @@ void
 xresreload(int signum) {
 	xresupdate();
 	xloadcols();
+	xunloadfonts();
+	xloadfonts(font, 0);
 	cresize(0, 0);
 	redraw();
 	xhints();
