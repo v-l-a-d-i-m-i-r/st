@@ -1,4 +1,6 @@
 config.h
 st.o
 x.o
+graphics.o
+rowcolumn_diacritics_helpers.o
 st
